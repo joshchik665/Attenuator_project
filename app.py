@@ -1,4 +1,5 @@
 import sys
+import json
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QIcon, QPixmap
 from instruments.J7204B import J7204B
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QFileDialog,
 )
-import json
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
