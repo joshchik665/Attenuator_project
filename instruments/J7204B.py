@@ -39,6 +39,7 @@ class J7204B(InstrumentUtilty):
     
     
     def get_channel_value(self,channel_name):
+        """Gets channel value from device ans saves in channel_values dictionary"""
         response = self.query(self.channel_query_commands[channel_name])
         
         response_list = response.split(',')
@@ -51,6 +52,7 @@ class J7204B(InstrumentUtilty):
     
     
     def set_channel_value(self,channel_name,value):
+        """Sets the channel value for specified channel"""
         value = int(value)
         
         if value > 119:
@@ -66,10 +68,12 @@ class J7204B(InstrumentUtilty):
             self.write(self.channel_write_commands[channel_name] + '2_' + str(tens))
     
     def write(self,write_str):
+        """Write to the device"""
         self.my_instrument.write(write_str)
         self.my_instrument.query('*OPC?')
     
     def query(self,query_str):
+        """Queries the device"""
         return self.my_instrument.query(query_str)
 
 

@@ -23,14 +23,15 @@ class InstrumentUtilty():
             'Agilent Technologies,L4490A': 'Keysight_J7204B'
         }
         
+        # Sets device type
         self.device_type = 'unknown'
-        
         for key,value in self.idns.items():
             if self.idn.startswith(key):
                 self.device_type = value
     
     
     def remove_leading_zeros(self, ip_address):
+        """Removes leading zeros in an ip address string"""
         parts = ip_address.split('.')
         
         parts = [str(int(part)) for part in parts]
