@@ -60,8 +60,8 @@ class J7204B(InstrumentUtilty):
             tens = (value // 10) * 10
             ones = value % 10
         
-        if not ones == (self.channel_values[channel_name] % 10):
-            self.write(self.channel_write_commands[channel_name] + '1_' + str(ones))
+        
+        self.write(self.channel_write_commands[channel_name] + '1_' + str(ones))
         if not tens == ((self.channel_values[channel_name] // 10) * 10):
             self.write(self.channel_write_commands[channel_name] + '2_' + str(tens))
     

@@ -1,7 +1,7 @@
 import sys
 import json
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtGui import QIcon, QPixmap, QImage
 from instruments.J7204B import J7204B
 from PySide6.QtWidgets import (
     QApplication,
@@ -102,11 +102,13 @@ class DeviceTab(QWidget):
         self.status_bar = QStatusBar()
         self.status_bar.showMessage('Not Connected!',timeout=0)
         
+        self.connected=False
+        
         self.start_page()
     
     
     def start_page(self):
-        title = QLabel("Attenuator GUI")
+        title = QLabel("Lab Attenuator GUI")
         font = title.font()
         font.setPointSize(30)
         font.setBold(True)
@@ -116,6 +118,7 @@ class DeviceTab(QWidget):
         
         self.ip_entry = QLineEdit()
         self.ip_entry.setInputMask('000.000.000.000;_')
+        self.ip_entry.setFixedWidth(85)
         self.ip_entry.returnPressed.connect(self.connect_device)
         
         self.connect_button = QPushButton('Connect')
@@ -127,10 +130,12 @@ class DeviceTab(QWidget):
         
         self.load_button = QPushButton('load Config')
         self.load_button.pressed.connect(self.load_settings)
-        self.load_button.setDisabled(True)
         
-        logo = QLabel()
-        logo.setPixmap(QPixmap('icon\\crc_icon.png'))
+        img= QImage('icon\\crc_icon.png')
+        pixmap = QPixmap(img.scaledToWidth(100))
+        crc_logo = QLabel(self)
+        crc_logo.setPixmap(pixmap)
+        crc_logo.setAlignment(Qt.AlignRight | Qt.AlignTop)
         
         ip_entry_layout = QHBoxLayout()
         ip_entry_layout.addWidget(self.ip_entry)
@@ -145,7 +150,8 @@ class DeviceTab(QWidget):
         
         header_layout = QHBoxLayout()
         header_layout.addLayout(title_layout)
-        header_layout.addWidget(logo)
+        header_layout.addStretch()
+        header_layout.addWidget(crc_logo)
         
         self.channel_layout = QHBoxLayout()
         
@@ -158,8 +164,13 @@ class DeviceTab(QWidget):
     
     
     def connect_device(self):
-        ip_address = self.ip_entry.text()
-        self.device = J7204B(ip_address)
+        self.ip_address = self.ip_entry.text()
+        self._connect_device()
+    
+    
+    def _connect_device(self):
+        self.device = J7204B(self.ip_address)
+        self.connected = self.device.connected
         
         if self.device.connected:
             self.channels = self.devices_settings[self.device.device_type]
@@ -177,13 +188,12 @@ class DeviceTab(QWidget):
             for __,value in self.channel_widgets.items():
                 self.channel_layout.addWidget(value)
             
-            self.status_bar.showMessage('Connected to: ' + self.device.device_type + ' @' + ip_address,timeout=0)
+            self.status_bar.showMessage('Connected to: ' + self.device.device_type + ' @' + self.ip_address,timeout=0)
             
             self.update_values()
             self.ip_entry.setDisabled(True)
             self.connect_button.setDisabled(True)
             self.save_button.setDisabled(False)
-            self.load_button.setDisabled(False)
         else:
             self.fail_connect_msg()
     
@@ -234,18 +244,42 @@ class DeviceTab(QWidget):
         msg.exec()
     
     
+    def invalid_filetype(self):
+        # Create a QMessageBox instance
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setText("Invalid File Type!")
+        msg.setWindowTitle("Message")
+        msg.setStandardButtons(QMessageBox.Ok)
+        
+        # Display the message box
+        msg.exec()
+    
+    
     def set_stylesheet(self):
         # Define the stylesheet with border-radius for QPushButton and QLineEdit
         stylesheet = """
             QPushButton {
-                border-radius: 5px;
+                border-radius: 10px;
+                padding: 5px;
+                border: 1px solid #8f8f91;
+                background-color: #2596be;
+                color: white;
+            }
+            QPushButton:pressed {
+                background-color: darkblue;
+                border-style: inset
+            }
+            QPushButton:disabled {
+                background-color: darkgray;
+            }
+            QLineEdit {
+                border-radius: 10px;
                 padding: 5px;
                 border: 1px solid #8f8f91;
             }
-            QLineEdit {
-                border-radius: 5px;
-                padding: 5px;
-                border: 1px solid #8f8f91;
+            QLineEdit:disabled {
+                background-color: lightgray;
             }
             QSpinBox {
                 font-size: 24px;
@@ -258,20 +292,33 @@ class DeviceTab(QWidget):
         self.setStyleSheet(stylesheet)
     
     
-    def open_file_dialog(self):
+    def save_file_dialog(self):
         # Create and configure the file dialog
-        file_path, _ = QFileDialog.getSaveFileName(self, "Create or Overwrite JSON File", "", "JSON Files (*.json)")
+        file_path, _ = QFileDialog.getSaveFileName(self, 'Create or overwrite .json file', '', 'JSON Files (*.json)')
 
         if file_path:
-            if not file_path.endswith(".json"):  # Ensure the file has a .json extension
-                file_path += ".json"
+            if not file_path.endswith('.json'):  # Ensure the file has a .json extension
+                file_path += '.json'
             return file_path
         return 0
+    
+    
+    def open_file_dialog(self):
+        file_path, __ = QFileDialog.getOpenFileName(self,'Open .json file','','JSON Files (*.json)')
+        
+        if not file_path:
+            return 0
+        if not file_path.endswith('.json'):
+            self.invalid_filetype()
+            return 0
+        else:
+            return file_path
     
     
     def save_settings(self):
         config = {}
         config['device_type'] = self.device.device_type
+        config['ip_address'] = self.ip_address
         config['channels'] = {}
         for key,value in self.channel_widgets.items():
             config['channels'][key] = {
@@ -279,7 +326,7 @@ class DeviceTab(QWidget):
                 'channel_value': value.entry_box.value(),
             }
         
-        with open(self.open_file_dialog(), 'w') as file:
+        with open(self.save_file_dialog(), 'w') as file:
             json.dump(config, file)
     
     
@@ -287,17 +334,19 @@ class DeviceTab(QWidget):
         with open(self.open_file_dialog(), 'r') as file:
             config = json.load(file)
         
+        if not self.connected:
+            self.ip_address = config['ip_address']
+            self._connect_device()
+        
         if not self.device.device_type == config['device_type']:
             self.wrong_config()
-            return 0
-        
-        for key, value in config['channels'].items():
-            self.channel_widgets[key].channel_label = value['channel_label']
-            self.channel_widgets[key].label_box.setPlaceholderText(value['channel_label'])
-            
-            self.channel_widgets[key].entry_box.setValue(value['channel_value'])
-            self.set_value(key)
-        
+        else:
+            for key, value in config['channels'].items():
+                self.channel_widgets[key].channel_label = value['channel_label']
+                self.channel_widgets[key].label_box.setPlaceholderText(value['channel_label'])
+                
+                self.channel_widgets[key].entry_box.setValue(value['channel_value'])
+                self.set_value(key)
 
 
 class CustomSpinBox(QSpinBox):
